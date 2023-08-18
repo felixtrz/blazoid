@@ -14,7 +14,7 @@ import { SpinComponent, SpinSystem } from './spin';
 import { GlobalComponent } from './global';
 import { InlineSystem } from './landing';
 import { RealityAccelerator } from 'ratk';
-import { SpawnSystem } from './spawner';
+import { ScreenSystem } from './screen';
 import { World } from '@lastolivegames/becsy';
 import { setupScene } from './scene';
 
@@ -23,7 +23,8 @@ const worldDef = {
 		GlobalComponent,
 		PlayerComponent,
 		PlayerSystem,
-		SpawnSystem,
+		ScreenSystem,
+		// SpawnSystem,
 		SpinComponent,
 		SpinSystem,
 		InlineSystem,
@@ -37,11 +38,25 @@ World.create(worldDef).then((world) => {
 	ratk.onPlaneAdded = (plane) => {
 		const mesh = plane.planeMesh;
 		mesh.material = new MeshBasicMaterial({
-			transparent: true,
-			opacity: 0.3,
-			color: Math.random() * 0xffffff,
+			wireframe: true,
 			side: DoubleSide,
 		});
+		mesh.visible = false;
+	};
+	ratk.onMeshAdded = (mesh) => {
+		console.log(mesh, mesh.semanticLabel);
+		const meshMesh = mesh.meshMesh;
+		if (mesh.semanticLabel === 'screen') {
+			meshMesh.visible = false;
+			meshMesh.material = new MeshBasicMaterial({
+				side: DoubleSide,
+			});
+		} else {
+			meshMesh.material = new MeshBasicMaterial({
+				wireframe: true,
+			});
+			meshMesh.visible = false;
+		}
 	};
 	scene.add(ratk.root);
 
@@ -51,16 +66,30 @@ World.create(worldDef).then((world) => {
 	let roomCaptureDone = false;
 	renderer.setAnimationLoop(function () {
 		if (renderer.xr.isPresenting && !roomCaptureDone) {
-			if (ratk.planes.size > 0) {
-				roomCaptureDone = true;
-			} else if (roomCaptureDelayTimer == null) {
+			if (roomCaptureDelayTimer == null) {
 				roomCaptureDelayTimer = performance.now();
 			} else if (performance.now() - roomCaptureDelayTimer > 2000) {
-				console.log(renderer.xr.getSession());
-				renderer.xr.getSession().initiateRoomCapture();
+				if (ratk.planes.size == 0) {
+					renderer.xr.getSession().initiateRoomCapture();
+				}
 				roomCaptureDone = true;
 			}
 		}
+
+		// boxes.forEach((box) => {
+		// 	const knot = box.userData.knot;
+		// 	const target = knot.userData.target;
+		// 	if (target) {
+		// 		if (knot.parent != scene) {
+		// 			scene.attach(knot);
+		// 		}
+		// 		knot.position.lerp(target.position, 0.016 * 1);
+		// 	} else {
+		// 		knot.userData.box.attach(knot);
+		// 		knot.position.lerp(knot.userData.position, 0.016 * 2);
+		// 	}
+		// });
+
 		ratk.update();
 		renderer.render(scene, camera);
 		if (ecsexecuting == false) {

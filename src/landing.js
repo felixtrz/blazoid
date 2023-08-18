@@ -5,20 +5,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {
-	BackSide,
-	IcosahedronGeometry,
-	Mesh,
-	MeshStandardMaterial,
-} from 'three';
+import { BackSide, IcosahedronGeometry, Mesh, Vector3 } from 'three';
+import { coreGeometries, matCapMaterials } from './screen';
 
 import { ARButton } from './ARButton';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { GlobalComponent } from './global';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { System } from '@lastolivegames/becsy';
 
-const CAMERA_ANGULAR_SPEED = Math.PI;
+const CAMERA_START_POSITION = new Vector3(0, 0.1, 0.4);
+const CAMERA_ROATION_AXIS = new Vector3(0, 1, 0);
+const CAMERA_ROTATION_FREQUENCY = 0.05;
 
 export class InlineSystem extends System {
 	constructor() {
@@ -28,30 +24,18 @@ export class InlineSystem extends System {
 	}
 
 	_loadModel(global) {
-		const loader = new GLTFLoader();
-		const { camera, scene, renderer } = global;
-		this.container = new Mesh(
-			new IcosahedronGeometry(1, 1),
-			new MeshStandardMaterial({ side: BackSide, color: 0x2e2e2e }),
+		const { camera, scene } = global;
+		const containerMaterial = matCapMaterials[
+			Math.floor(Math.random() * matCapMaterials.length)
+		].clone();
+		containerMaterial.side = BackSide;
+		this.container = new Mesh(new IcosahedronGeometry(1, 0), containerMaterial);
+		this.core = new Mesh(
+			coreGeometries[Math.floor(Math.random() * coreGeometries.length)],
+			matCapMaterials[Math.floor(Math.random() * matCapMaterials.length)],
 		);
-		scene.add(this.container);
+		scene.add(this.container.add(this.core));
 		camera.position.set(0, 0.1, 0.4);
-		loader.load('assets/Prop_Camera.glb', (gltf) => {
-			const model = gltf.scene;
-			this.container.add(model);
-			model.name = 'mesh-prototype';
-		});
-
-		camera.zoom = 100;
-		this.orbitControls = new OrbitControls(camera, renderer.domElement);
-		this.orbitControls.target.set(0, 0, 0);
-		this.orbitControls.update();
-		this.orbitControls.enableZoom = false;
-		this.orbitControls.enablePan = false;
-		this.orbitControls.enableDamping = true;
-		this.orbitControls.autoRotate = true;
-		this.orbitControls.rotateSpeed *= -0.5;
-		this.orbitControls.autoRotateSpeed = CAMERA_ANGULAR_SPEED;
 		this.wasPresenting = false;
 	}
 
@@ -61,7 +45,13 @@ export class InlineSystem extends System {
 		webLaunchButton.style.display = 'none';
 		ARButton.convertToARButton(arButton, global.renderer, {
 			sessionInit: {
-				requiredFeatures: ['hit-test', 'plane-detection', 'anchors'],
+				requiredFeatures: [
+					'hit-test',
+					'plane-detection',
+					'anchors',
+					'mesh-detection',
+					'hand-tracking',
+				],
 				optionalFeatures: ['local-floor', 'bounded-floor', 'layers'],
 			},
 			onUnsupported: () => {
@@ -80,6 +70,19 @@ export class InlineSystem extends System {
 	execute() {
 		const global = this.globalEntity.current[0].read(GlobalComponent);
 
+		const { camera } = global;
+
+		const isPresenting = global.renderer.xr.isPresenting;
+		if (!isPresenting) {
+			camera.position
+				.copy(CAMERA_START_POSITION)
+				.applyAxisAngle(
+					CAMERA_ROATION_AXIS,
+					this.time * CAMERA_ROTATION_FREQUENCY,
+				);
+			camera.lookAt(0, 0, 0);
+		}
+
 		if (this.needsSetup) {
 			this._loadModel(global);
 			this._setupButtons(global);
@@ -87,7 +90,6 @@ export class InlineSystem extends System {
 			return;
 		}
 
-		const isPresenting = global.renderer.xr.isPresenting;
 		if (!this.wasPresenting && isPresenting) {
 			this.container.visible = false;
 			global.scene.traverse((object) => {
@@ -103,10 +105,6 @@ export class InlineSystem extends System {
 					object.visible = false;
 				}
 			});
-		}
-
-		if (this.container.visible) {
-			this.orbitControls.update();
 		}
 
 		this.wasPresenting = isPresenting;
