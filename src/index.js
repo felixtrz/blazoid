@@ -9,7 +9,6 @@ import './styles/index.css';
 
 import { DoubleSide, MeshBasicMaterial } from 'three';
 import { PlayerComponent, PlayerSystem } from './player';
-import { SpinComponent, SpinSystem } from './spin';
 
 import { GlobalComponent } from './global';
 import { InlineSystem } from './landing';
@@ -24,9 +23,6 @@ const worldDef = {
 		PlayerComponent,
 		PlayerSystem,
 		ScreenSystem,
-		// SpawnSystem,
-		SpinComponent,
-		SpinSystem,
 		InlineSystem,
 	],
 };
